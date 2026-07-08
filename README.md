@@ -16,6 +16,9 @@ OP │ my-project (main ✓) │ 5h 24% 2h13m │ ctx 62k/400k (15%) │ $0.42
 | `ctx 62k/400k (15%)` | Current context size vs your auto-compact budget; shows `⚠ compact soon` at ≥90% |
 | `$0.42` | Session cost |
 
+<img width="1016" height="198" alt="image" src="https://github.com/user-attachments/assets/847063b7-9634-40f2-a9b3-b6a778efa114" />
+
+
 Usage segments turn **yellow ≥70%** and **red ≥90%**.
 
 The `5h` segment is Claude.ai **Pro/Max only** and appears after the first model
