@@ -78,10 +78,11 @@ if git -C "$cwd" rev-parse --git-dir >/dev/null 2>&1; then
 fi
 # clickable [code] link -> open the PROJECT ROOT as a workspace via OSC 8 hyperlink.
 # percent-encode the path (spaces / non-ASCII) so the URI stays valid; keep / literal.
+# ?windowId=_blank forces a new window so the click never replaces the current one.
 if [ -n "$scheme" ]; then
   uri=$(jq -rn --arg s "$proj" '$s|@uri'); uri=${uri//%2F//}
   l1+=$(sep)
-  l1+=$(printf "\033]8;;%s://file%s\a\033[34m</> %s\033[0m\033]8;;\a" "$scheme" "$uri" "$scheme")
+  l1+=$(printf "\033]8;;%s://file%s?windowId=_blank\a\033[34m</> %s\033[0m\033]8;;\a" "$scheme" "$uri" "$scheme")
 fi
 
 # ===== line 2: metrics (5h · context · lines · cost) =====
