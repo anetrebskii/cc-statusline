@@ -64,4 +64,15 @@ if [ "$cost" != "-1" ]; then
   out+=$(sep); out+=$(printf "\033[90m\$%.2f\033[0m" "$cost")
 fi
 
+# [code] link: open cwd in editor (trae > cursor > vscode), clickable via OSC 8 hyperlink
+scheme=""
+if command -v trae >/dev/null 2>&1; then scheme=trae
+elif command -v cursor >/dev/null 2>&1; then scheme=cursor
+elif command -v code >/dev/null 2>&1; then scheme=vscode
+fi
+if [ -n "$scheme" ]; then
+  out+=$(sep)
+  out+=$(printf "\033]8;;%s://file%s\a\033[34m</> %s\033[0m\033]8;;\a" "$scheme" "$cwd" "$scheme")
+fi
+
 printf "%s" "$out"
