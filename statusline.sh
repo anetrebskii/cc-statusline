@@ -6,6 +6,9 @@ input=$(cat)
 # Context budget before auto-compact (matches CLAUDE_CODE_AUTO_COMPACT_WINDOW, default 400k)
 LIMIT=${CLAUDE_CODE_AUTO_COMPACT_WINDOW:-400000}
 
+# How many skill names to show before collapsing the rest into a "+N" counter
+SKILLS_MAX=${CC_STATUSLINE_SKILLS:-3}
+
 sep() { printf "\033[90m │ \033[0m"; }
 
 cwd=$(echo "$input" | jq -r '.workspace.current_dir // .cwd // "."')
@@ -18,14 +21,14 @@ read -r five reset ctx cost added removed <<<"$(echo "$input" | jq -r '[
   (.cost.total_lines_added // -1),
   (.cost.total_lines_removed // -1)] | @tsv')"
 
+transcript=$(echo "$input" | jq -r '.transcript_path // ""')
+[ -f "$transcript" ] || transcript=""
+
 # fallback: derive context tokens from the session transcript when not provided inline
-if [ "$ctx" = "-1" ]; then
-  transcript=$(echo "$input" | jq -r '.transcript_path // ""')
-  if [ -n "$transcript" ] && [ -f "$transcript" ]; then
-    ctx=$(jq -s '[.[] | select(.message.usage != null) | .message.usage
-      | (.input_tokens + (.cache_read_input_tokens // 0) + (.cache_creation_input_tokens // 0))] | last // -1' "$transcript" 2>/dev/null)
-    [ -z "$ctx" ] && ctx=-1
-  fi
+if [ "$ctx" = "-1" ] && [ -n "$transcript" ]; then
+  ctx=$(jq -s '[.[] | select(.message.usage != null) | .message.usage
+    | (.input_tokens + (.cache_read_input_tokens // 0) + (.cache_creation_input_tokens // 0))] | last // -1' "$transcript" 2>/dev/null)
+  [ -z "$ctx" ] && ctx=-1
 fi
 
 # short model tag
@@ -50,6 +53,65 @@ scheme=""
 if command -v trae >/dev/null 2>&1; then scheme=trae
 elif command -v cursor >/dev/null 2>&1; then scheme=cursor
 elif command -v code >/dev/null 2>&1; then scheme=vscode
+fi
+
+# percent-encode a path for an editor URI, keeping / literal
+enc() { local u; u=$(jq -rn --arg s "$1" '$s|@uri'); printf '%s' "${u//%2F//}"; }
+
+# locate a skill's SKILL.md. Built-ins are embedded in the claude binary and have no file,
+# so an empty result just means "render the name without a link".
+skill_uri() {
+  local n=${1#*:} p d
+  for d in "$proj/.claude" "$HOME/.claude"; do
+    for p in "$d/skills/$n/SKILL.md" "$d/skills/$n.md" "$d/commands/$n.md"; do
+      [ -f "$p" ] && { enc "$p"; return; }
+    done
+  done
+  p=$(find "$HOME/.claude/plugins" -maxdepth 9 \
+        \( -path "*/skills/$n/SKILL.md" -o -path "*/commands/$n.md" \) -print -quit 2>/dev/null)
+  [ -n "$p" ] && enc "$p"
+}
+
+# ===== skills invoked this session, scraped from Skill tool_use records in the transcript =====
+# Transcripts are append-only, so cache the scan and only read bytes added since the last render.
+# Cache holds "name<TAB>uri" so each name resolves to a file at most once per session.
+LF=$'\n'
+skills=""
+if [ -n "$transcript" ]; then
+  sid=$(echo "$input" | jq -r '.session_id // ""')
+  [ -z "$sid" ] && sid=$(printf '%s' "$transcript" | cksum | cut -d' ' -f1)
+  cf="${TMPDIR:-/tmp}/cc-statusline-skills"; mkdir -p "$cf"; cf="$cf/$sid"
+  size=$(stat -f%z "$transcript" 2>/dev/null || stat -c%s "$transcript" 2>/dev/null || echo 0)
+  off=0; seen=""
+  if [ -f "$cf" ]; then
+    IFS= read -r off < "$cf"; seen=$(tail -n +2 "$cf")
+    # garbled cache, or a transcript that shrank: start over
+    case "$off" in ''|*[!0-9]*) off=0; seen="" ;; esac
+    [ "$off" -gt "$size" ] && { off=0; seen=""; }
+  fi
+  if [ "$off" -lt "$size" ]; then
+    # first render of an already-huge transcript: scan only the recent tail, else this blocks for seconds
+    [ "$off" -eq 0 ] && [ "$size" -gt 20000000 ] && off=$((size - 20000000))
+    known="$LF$(printf '%s' "$seen" | cut -f1)$LF"
+    while IFS= read -r s; do
+      [ -z "$s" ] && continue
+      case "$known" in *"$LF$s$LF"*) continue ;; esac
+      known+="$s$LF"
+      seen+="${seen:+$LF}$s"$'\t'"$(skill_uri "$s")"
+    done < <(tail -c "+$((off + 1))" "$transcript" \
+               | grep -oE '"name":"Skill","input":\{"skill":"[^"]+"' \
+               | sed -E 's/.*"skill":"//; s/"$//')
+    printf '%s\n%s\n' "$size" "$seen" > "$cf"
+  fi
+  if [ -n "$seen" ]; then
+    n=$(printf '%s\n' "$seen" | wc -l | tr -d ' ')
+    while IFS=$'\t' read -r s u; do
+      [ -n "$u" ] && [ -n "$scheme" ] &&
+        s=$(printf '\033]8;;%s://file%s\a%s\033]8;;\a' "$scheme" "$u" "$s")
+      skills+="${skills:+ · }$s"
+    done <<<"$(printf '%s\n' "$seen" | tail -"$SKILLS_MAX")"
+    [ "$n" -gt "$SKILLS_MAX" ] && skills="+$((n - SKILLS_MAX)) · $skills"
+  fi
 fi
 
 # ===== line 1: identity (model · project(branch) · code link) =====
@@ -88,6 +150,10 @@ fi
 # ===== line 2: metrics (5h · context · lines · cost) =====
 l2=""
 add2() { [ -n "$l2" ] && l2+=$(sep); l2+=$1; }
+
+if [ -n "$skills" ]; then
+  add2 "$(printf "\033[36m⚑ %s\033[0m" "$skills")"
+fi
 
 if [ "$five" != "-1" ]; then
   fi5=$(printf "%.0f" "$five")
