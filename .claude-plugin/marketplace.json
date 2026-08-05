@@ -1,0 +1,14 @@
+{
+  "name": "cc-statusline",
+  "owner": {
+    "name": "anetrebskii"
+  },
+  "plugins": [
+    {
+      "name": "cc-statusline",
+      "source": "./",
+      "description": "Compact status line: model, project and git branch, skills invoked this session, 5h usage, context budget and cost.",
+      "version": "1.1.0"
+    }
+  ]
+}

@@ -13,7 +13,10 @@ SKILLS_MAX=${CC_STATUSLINE_SKILLS:-3}
 # installed it stay current. CC_STATUSLINE_AUTOUPDATE=0 disables it.
 UPDATE_URL=${CC_STATUSLINE_UPDATE_URL:-https://raw.githubusercontent.com/anetrebskii/cc-statusline/main/statusline.sh}
 stamp="${TMPDIR:-/tmp}/cc-statusline-update"
-if [ "${CC_STATUSLINE_AUTOUPDATE:-1}" = 1 ] && [ -f "$0" ] && [ -w "$0" ] &&
+# When installed as a plugin, Claude Code owns updates: the marker keeps the two from
+# overwriting each other every session.
+if [ "${CC_STATUSLINE_AUTOUPDATE:-1}" = 1 ] && [ ! -e "${0%/*}/.cc-statusline-plugin-managed" ] &&
+   [ -f "$0" ] && [ -w "$0" ] &&
    { [ ! -f "$stamp" ] || [ -n "$(find "$stamp" -mmin +1440 2>/dev/null)" ]; }; then
   : > "$stamp"   # stamp before fetching, so a broken network doesn't retry on every render
   ( t="$0.tmp.$$"

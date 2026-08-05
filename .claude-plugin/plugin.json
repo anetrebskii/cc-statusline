@@ -1,0 +1,22 @@
+{
+  "name": "cc-statusline",
+  "displayName": "cc-statusline",
+  "version": "1.1.0",
+  "description": "Compact status line: model, project and git branch, skills invoked this session, 5h usage, context budget and cost.",
+  "author": {
+    "name": "anetrebskii"
+  },
+  "homepage": "https://github.com/anetrebskii/cc-statusline",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/sync.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

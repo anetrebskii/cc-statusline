@@ -36,12 +36,35 @@ binary and have no file, so those render as plain text.
 
 ## Install
 
+### As a plugin (recommended)
+
+```
+/plugin marketplace add anetrebskii/cc-statusline
+/plugin install cc-statusline@cc-statusline
+```
+
+Claude Code keeps the plugin up to date on its own, so this is the option that
+stays current without you doing anything.
+
+A plugin can't declare a `statusLine` directly - only the `agent` and
+`subagentStatusLine` keys are supported - so the plugin ships a `SessionStart`
+hook that copies its bundled `statusline.sh` to `~/.claude/hooks/` and points
+`settings.json` at it. The hook re-syncs whenever a plugin update changes the
+script, and leaves your `statusLine` alone if it already points somewhere else.
+
+### As a standalone script
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/anetrebskii/cc-statusline/main/install.sh | bash
 ```
 
 This downloads `statusline.sh` to `~/.claude/hooks/` and sets the `statusLine`
 key in `~/.claude/settings.json`. Start a new Claude Code session to see it.
+
+Installed this way the script keeps *itself* current (see [Updating](#updating)).
+The two mechanisms don't collide: the plugin drops a
+`.cc-statusline-plugin-managed` marker next to the script, and the script skips
+its own updater whenever that marker is present.
 
 ### Manual install
 
