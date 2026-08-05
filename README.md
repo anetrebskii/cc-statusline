@@ -72,6 +72,32 @@ them in the `env` block of `~/.claude/settings.json`:
 { "env": { "CC_STATUSLINE_SKILLS": "5" } }
 ```
 
+## Updating
+
+The script updates itself. Once a day it fetches the latest `statusline.sh` from
+`main` in the background and swaps it in, so every machine you installed it on
+stays current without you touching them.
+
+The replacement only happens if the download is non-empty, starts with a
+shebang, and passes `bash -n` - a captive-portal login page or a truncated
+download can't replace a working script. The swap is an atomic rename in the
+same directory, so a session rendering at that moment keeps the old file.
+
+| Variable | Effect |
+|---|---|
+| `CC_STATUSLINE_AUTOUPDATE=0` | Turn self-update off |
+| `CC_STATUSLINE_UPDATE_URL=...` | Update from your own fork or a pinned tag instead of `main` |
+
+Two caveats worth knowing:
+
+- Auto-update only exists from this version on. A machine running an older copy
+  has no updater in it, so it needs `install.sh` run once more to pick this up.
+  After that it keeps itself current.
+- It runs whatever is on `main` at fetch time. Anything pushed there executes on
+  every installed machine within a day. Point `CC_STATUSLINE_UPDATE_URL` at a
+  tag (`.../cc-statusline/v1.2.0/statusline.sh`) if you'd rather cut deliberate
+  releases than ship every commit.
+
 ## Requirements
 
 `jq`, `git`, and standard coreutils - all data comes from the JSON that Claude

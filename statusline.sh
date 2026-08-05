@@ -9,6 +9,25 @@ LIMIT=${CLAUDE_CODE_AUTO_COMPACT_WINDOW:-400000}
 # How many skill names to show before collapsing the rest into a "+N" counter
 SKILLS_MAX=${CC_STATUSLINE_SKILLS:-3}
 
+# Self-update: once a day, refresh this script from the repo in the background so machines that
+# installed it stay current. CC_STATUSLINE_AUTOUPDATE=0 disables it.
+UPDATE_URL=${CC_STATUSLINE_UPDATE_URL:-https://raw.githubusercontent.com/anetrebskii/cc-statusline/main/statusline.sh}
+stamp="${TMPDIR:-/tmp}/cc-statusline-update"
+if [ "${CC_STATUSLINE_AUTOUPDATE:-1}" = 1 ] && [ -f "$0" ] && [ -w "$0" ] &&
+   { [ ! -f "$stamp" ] || [ -n "$(find "$stamp" -mmin +1440 2>/dev/null)" ]; }; then
+  : > "$stamp"   # stamp before fetching, so a broken network doesn't retry on every render
+  ( t="$0.tmp.$$"
+    # only swap in something that is non-empty, starts with a shebang and actually parses,
+    # so a captive-portal HTML page or a truncated download can never replace a working script
+    if curl -fsSL --max-time 10 "$UPDATE_URL" -o "$t" && [ -s "$t" ] &&
+       IFS= read -r l < "$t" && [ "${l#\#!}" != "$l" ] &&
+       bash -n "$t" 2>/dev/null && ! cmp -s "$t" "$0"; then
+      chmod +x "$t" && mv -f "$t" "$0"   # same dir: atomic, and running instances keep the old inode
+    fi
+    rm -f "$t"
+  ) </dev/null >/dev/null 2>&1 &
+fi
+
 sep() { printf "\033[90m │ \033[0m"; }
 
 cwd=$(echo "$input" | jq -r '.workspace.current_dir // .cwd // "."')
